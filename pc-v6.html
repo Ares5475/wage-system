@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一线员工薪酬核算系统 v6</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background:#f0f2f5; }
+  .header { background:#001529; color:#fff; padding:0 24px; height:56px; display:flex; align-items:center; justify-content:space-between; }
+  .header h1 { font-size:18px; }
+  .layout { display:flex; height:calc(100vh - 56px); }
+  .sidebar { width:200px; background:#fff; border-right:1px solid #e8e8e8; overflow-y:auto; }
+  .sidebar ul { list-style:none; }
+  .sidebar li { padding:14px 24px; cursor:pointer; font-size:14px; color:#333; border-left:3px solid transparent; }
+  .sidebar li:hover { background:#e6f7ff; }
+  .sidebar li.active { background:#e6f7ff; color:#1890ff; border-left-color:#1890ff; font-weight:600; }
+  .main { flex:1; padding:24px; overflow-y:auto; }
+  .page { display:none; }
+  .page.active { display:block; }
+  .card { background:#fff; border-radius:8px; padding:20px; margin-bottom:16px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  .card h3 { font-size:15px; margin-bottom:14px; color:#333; border-bottom:1px solid #f0f0f0; padding-bottom:10px; }
+  .btn { padding:7px 16px; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+  .btn-primary { background:#1890ff; color:#fff; }
+  .btn-primary:hover { background:#40a9ff; }
+  .btn-danger { background:#ff4d4f; color:#fff; }
+  .btn-success { background:#52c41a; color:#fff; }
+  .btn-sm { padding:4px 10px; font-size:12px; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th,td { padding:10px 12px; text-align:left; border-bottom:1px solid #f0f0f0; }
+  th { background:#fafafa; color:#666; font-weight:600; }
+  tr:hover { background:#fafafa; }
+  .modal-mask { position:fixed; top:0;left:0;right:0;bottom:0; background:rgba(0,0,0,0.45); display:none; justify-content:center; align-items:center; z-index:1000; }
+  .modal-mask.show { display:flex; }
+  .modal { background:#fff; border-radius:8px; width:520px; max-height:85vh; overflow-y:auto; }
+  .modal-header { padding:16px 20px; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center; }
+  .modal-header h3 { font-size:15px; }
+  .modal-body { padding:20px; }
+  .modal-footer { padding:12px 20px; border-top:1px solid #f0f0f0; text-align:right; }
+  .form-group { margin-bottom:14px; }
+  .form-group label { display:block; margin-bottom:5px; font-size:13px; color:#666; }
+  .form-group input,.form-group select { width:100%; padding:8px 10px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px; }
+  .form-group input:focus,.form-group select:focus { outline:none; border-color:#1890ff; }
+  .tag { display:inline-block; padding:2px 8px; border-radius:3px; font-size:12px; }
+  .tag-green { background:#f6ffed; color:#52c41a; border:1px solid #b7eb8f; }
+  .tag-blue { background:#e6f7ff; color:#1890ff; border:1px solid #91d5ff; }
+  .tag-red { background:#fff1f0; color:#ff4d4f; border:1px solid #ffa39e; }
+  .tag-orange { background:#fff7e6; color:#fa8c16; border:1px solid #ffd591; }
+  .stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:20px; }
+  .stat-card { background:#fff; border-radius:8px; padding:20px; box-shadow:0 1px 4px rgba(0,0,0,0.08); }
+  .stat-card .label { font-size:13px; color:#999; }
+  .stat-card .value { font-size:28px; font-weight:700; color:#1890ff; margin-top:8px; }
+  .filter-bar { display:flex; gap:10px; margin-bottom:16px; align-items:center; }
+  .filter-bar input,.filter-bar select { padding:7px 10px; border:1px solid #d9d9d9; border-radius:4px; font-size:13px; }
+  .empty { text-align:center; padding:40px; color:#999; }
+  .alert { padding:10px 14px; border-radius:4px; margin-bottom:12px; font-size:13px; }
+  .alert-success { background:#f6ffed; color:#52c41a; border:1px solid #b7eb8f; }
+  .alert-error { background:#fff1f0; color:#ff4d4f; border:1px solid #ffa39e; }
+  .wage-table td,.wage-table th { text-align:center; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>⚡ 一线员工薪酬核算系统 v6</h1>
+  <div style="font-size:13px;color:rgba(255,255,255,0.7);" id="dbStatus">连接中...</div>
+</div>
+<div class="layout">
+  <div class="sidebar">
+    <ul>
+      <li class="active" onclick="switchPage('dashboard')">📊 系统首页</li>
+      <li onclick="switchPage('employees')">👥 员工管理</li>
+      <li onclick="switchPage('prices')">💰 工价管理</li>
+      <li onclick="switchPage('semi')">🏭 半成品产量</li>
+      <li onclick="switchPage('inner')">📦 内销产量</li>
+      <li onclick="switchPage('outer')">🌐 外销产量</li>
+      <li onclick="switchPage('quality')">✅ 品质扣次</li>
+      <li onclick="switchPage('attendance')">⏰ 考勤管理</li>
+      <li onclick="switchPage('wage')">🧮 工资核算</li>
+      <li onclick="switchPage('results')">📋 工资结果</li>
+    </ul>
+  </div>
+  <div class="main" id="mainContent">
+    <!-- 系统首页 -->
+    <div class="page active" id="page-dashboard">
+      <div class="stats-grid" id="statsGrid"></div>
+      <div class="card"><h3>📈 月度工资趋势</h3><div id="trendChart" style="height:220px;display:flex;align-items:center;justify-content:center;color:#ccc;">图表区域</div></div>
+      <div class="card"><h3>🏆 本月产量TOP5</h3><div id="topEmployees"></div></div>
+    </div>
+    <!-- 员工管理 -->
+    <div class="page" id="page-employees">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">员工列表</h3>
+          <button class="btn btn-primary" onclick="openEmpModal()">+ 新增员工</button>
+        </div>
+        <div class="filter-bar">
+          <input type="text" id="empSearch" placeholder="搜索姓名/工号" oninput="loadEmployees()" style="width:200px;">
+          <select id="empSectionFilter" onchange="loadEmployees()"><option value="">全部车间</option><option value="外包">外包</option><option value="内包">内包</option><option value="烘烤">烘烤</option></select>
+        </div>
+        <table><thead><tr><th>工号</th><th>姓名</th><th>车间</th><th>类型</th><th>入职日期</th><th>状态</th><th>操作</th></tr></thead>
+        <tbody id="empTable"></tbody></table>
+        <div class="empty" id="empEmpty" style="display:none;">暂无员工数据</div>
+      </div>
+    </div>
+    <!-- 工价管理 -->
+    <div class="page" id="page-prices">
+      <div class="card">
+        <h3>工价标准</h3>
+        <table><thead><tr><th>产品名称</th><th>车间</th><th>工价(元/kg)</th><th>单位</th></tr></thead>
+        <tbody id="priceTable"></tbody></table>
+      </div>
+    </div>
+    <!-- 半成品产量 -->
+    <div class="page" id="page-semi">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">半成品产量录入</h3>
+          <button class="btn btn-primary" onclick="openRecordModal('semi')">+ 新增记录</button>
+        </div>
+        <div class="filter-bar">
+          <input type="date" id="semiDateFrom" onchange="loadSemi()">
+          <span>至</span>
+          <input type="date" id="semiDateTo" onchange="loadSemi()">
+          <select id="semiEmpFilter" onchange="loadSemi()" style="min-width:120px;"><option value="">全部员工</option></select>
+        </div>
+        <table><thead><tr><th>日期</th><th>工号</th><th>姓名</th><th>产品</th><th>重量(kg)</th><th>车间</th><th>操作</th></tr></thead>
+        <tbody id="semiTable"></tbody></table>
+        <div class="empty" id="semiEmpty" style="display:none;">暂无记录</div>
+      </div>
+    </div>
+    <!-- 内销产量 -->
+    <div class="page" id="page-inner">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">内销产量录入</h3>
+          <button class="btn btn-primary" onclick="openRecordModal('inner')">+ 新增记录</button>
+        </div>
+        <div class="filter-bar">
+          <input type="date" id="innerDateFrom" onchange="loadInner()">
+          <span>至</span>
+          <input type="date" id="innerDateTo" onchange="loadInner()">
+          <select id="innerEmpFilter" onchange="loadInner()" style="min-width:120px;"><option value="">全部员工</option></select>
+        </div>
+        <table><thead><tr><th>日期</th><th>工号</th><th>姓名</th><th>产品</th><th>重量(kg)</th><th>操作</th></tr></thead>
+        <tbody id="innerTable"></tbody></table>
+        <div class="empty" id="innerEmpty" style="display:none;">暂无记录</div>
+      </div>
+    </div>
+    <!-- 外销产量 -->
+    <div class="page" id="page-outer">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">外销产量录入</h3>
+          <button class="btn btn-primary" onclick="openRecordModal('outer')">+ 新增记录</button>
+        </div>
+        <div class="filter-bar">
+          <input type="date" id="outerDateFrom" onchange="loadOuter()">
+          <span>至</span>
+          <input type="date" id="outerDateTo" onchange="loadOuter()">
+          <select id="outerEmpFilter" onchange="loadOuter()" style="min-width:120px;"><option value="">全部员工</option></select>
+        </div>
+        <table><thead><tr><th>日期</th><th>工号</th><th>姓名</th><th>产品</th><th>重量(kg)</th><th>操作</th></tr></thead>
+        <tbody id="outerTable"></tbody></table>
+        <div class="empty" id="outerEmpty" style="display:none;">暂无记录</div>
+      </div>
+    </div>
+    <!-- 品质扣次 -->
+    <div class="page" id="page-quality">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">品质扣次记录</h3>
+          <button class="btn btn-primary" onclick="openQualityModal()">+ 新增扣次</button>
+        </div>
+        <div class="filter-bar">
+          <input type="date" id="qualityDateFrom" onchange="loadQuality()">
+          <span>至</span>
+          <input type="date" id="qualityDateTo" onchange="loadQuality()">
+          <select id="qualityEmpFilter" onchange="loadQuality()" style="min-width:120px;"><option value="">全部员工</option></select>
+        </div>
+        <table><thead><tr><th>日期</th><th>工号</th><th>姓名</th><th>问题描述</th><th>扣次</th><th>操作</th></tr></thead>
+        <tbody id="qualityTable"></tbody></table>
+        <div class="empty" id="qualityEmpty" style="display:none;">暂无记录</div>
+      </div>
+    </div>
+    <!-- 考勤管理 -->
+    <div class="page" id="page-attendance">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">考勤记录</h3>
+          <button class="btn btn-primary" onclick="openAttendanceModal()">+ 考勤录入</button>
+        </div>
+        <div class="filter-bar">
+          <input type="date" id="attDateFrom" onchange="loadAttendance()">
+          <span>至</span>
+          <input type="date" id="attDateTo" onchange="loadAttendance()">
+        </div>
+        <table><thead><tr><th>日期</th><th>工号</th><th>姓名</th><th>上班时长(h)</th><th>备注</th></tr></thead>
+        <tbody id="attTable"></tbody></table>
+        <div class="empty" id="attEmpty" style="display:none;">暂无考勤记录</div>
+      </div>
+    </div>
+    <!-- 工资核算 -->
+    <div class="page" id="page-wage">
+      <div class="card">
+        <h3>工资核算</h3>
+        <div class="alert alert-success" id="wageAlert" style="display:none;"></div>
+        <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:16px;">
+          <div class="form-group" style="margin-bottom:0;"><label>核算月份</label><input type="month" id="wageMonth" value=""></div>
+          <button class="btn btn-primary" onclick="calcWage()">开始核算</button>
+          <button class="btn btn-success" onclick="loadWageResults()">查看结果</button>
+        </div>
+        <div id="wageResult"></div>
+      </div>
+    </div>
+    <!-- 工资结果 -->
+    <div class="page" id="page-results">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+          <h3 style="margin:0;">工资结果</h3>
+          <div>
+            <input type="month" id="resultMonth" value="" onchange="loadWageResults()" style="padding:6px 10px;border:1px solid #d9d9d9;border-radius:4px;">
+            <button class="btn btn-primary" onclick="exportResults()" style="margin-left:8px;">导出Excel</button>
+          </div>
+        </div>
+        <table class="wage-table"><thead><tr><th>工号</th><th>姓名</th><th>车间</th><th>类型</th><th>总产量(kg)</th><th>计件工资</th><th>出勤(h)</th><th>计时工资</th><th>品质扣次</th><th>应发工资</th><th>状态</th></tr></thead>
+        <tbody id="resultTable"></tbody></table>
+        <div class="empty" id="resultEmpty" style="display:none;">请先选择月份并核算工资</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 员工弹窗 -->
+<div class="modal-mask" id="empModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="empModalTitle">新增员工</h3><span style="cursor:pointer;font-size:20px;" onclick="closeModal('empModal')">&times;</span></div>
+    <div class="modal-body">
+      <input type="hidden" id="empId">
+      <div class="form-group"><label>工号 *</label><input type="text" id="empCode"></div>
+      <div class="form-group"><label>姓名 *</label><input type="text" id="empName"></div>
+      <div class="form-group"><label>车间 *</label>
+        <select id="empSection"><option value="外包">外包</option><option value="内包">内包</option><option value="烘烤">烘烤</option></select>
+      </div>
+      <div class="form-group"><label>类型 *</label>
+        <select id="empType"><option value="计件">计件</option><option value="计时">计时</option></select>
+      </div>
+      <div class="form-group"><label>入职日期</label><input type="date" id="empHireDate"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('empModal')" style="margin-right:8px;background:#f0f0f0;">取消</button>
+      <button class="btn btn-primary" onclick="saveEmp()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 产量记录弹窗 -->
+<div class="modal-mask" id="recordModal">
+  <div class="modal">
+    <div class="modal-header"><h3 id="recordModalTitle">新增产量记录</h3><span style="cursor:pointer;font-size:20px;" onclick="closeModal('recordModal')">&times;</span></div>
+    <div class="modal-body">
+      <input type="hidden" id="recordId">
+      <input type="hidden" id="recordType">
+      <div class="form-group"><label>日期 *</label><input type="date" id="recordDate"></div>
+      <div class="form-group"><label>员工 *</label><select id="recordEmp"></select></div>
+      <div class="form-group"><label>产品 *</label><select id="recordProduct"></select></div>
+      <div class="form-group"><label>重量(kg) *</label><input type="number" id="recordWeight" step="0.1" min="0"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('recordModal')" style="margin-right:8px;background:#f0f0f0;">取消</button>
+      <button class="btn btn-primary" onclick="saveRecord()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 品质扣次弹窗 -->
+<div class="modal-mask" id="qualityModal">
+  <div class="modal">
+    <div class="modal-header"><h3>新增品质扣次</h3><span style="cursor:pointer;font-size:20px;" onclick="closeModal('qualityModal')">&times;</span></div>
+    <div class="modal-body">
+      <div class="form-group"><label>日期 *</label><input type="date" id="qualityDate"></div>
+      <div class="form-group"><label>员工 *</label><select id="qualityEmp"></select></div>
+      <div class="form-group"><label>问题描述</label><input type="text" id="qualityDesc"></div>
+      <div class="form-group"><label>扣次</label><input type="number" id="qualityDeduct" value="1" min="1" max="10"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('qualityModal')" style="margin-right:8px;background:#f0f0f0;">取消</button>
+      <button class="btn btn-primary" onclick="saveQuality()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 考勤弹窗 -->
+<div class="modal-mask" id="attendanceModal">
+  <div class="modal">
+    <div class="modal-header"><h3>考勤录入</h3><span style="cursor:pointer;font-size:20px;" onclick="closeModal('attendanceModal')">&times;</span></div>
+    <div class="modal-body">
+      <div class="form-group"><label>日期 *</label><input type="date" id="attDate"></div>
+      <div class="form-group"><label>员工 *</label><select id="attEmp"></select></div>
+      <div class="form-group"><label>上班时长(h) *</label><input type="number" id="attHours" step="0.5" min="0" max="24"></div>
+      <div class="form-group"><label>备注</label><input type="text" id="attNote"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('attendanceModal')" style="margin-right:8px;background:#f0f0f0;">取消</button>
+      <button class="btn btn-primary" onclick="saveAttendance()">保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let API_BASE = "";
+
+async function api(url, options={}) {
+  const res = await fetch(API_BASE + url, options);
+  return res.json();
+}
+
+function switchPage(page) {
+  document.querySelectorAll(".sidebar li").forEach(li => li.classList.remove("active"));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  event.target.closest("li").classList.add("active");
+  document.getElementById("page-" + page).classList.add("active");
+  if (page === "dashboard") loadDashboard();
+  if (page === "employees") loadEmployees();
+  if (page === "prices") loadPrices();
+  if (page === "semi") { loadEmpOptions("semiEmpFilter"); loadSemi(); }
+  if (page === "inner") { loadEmpOptions("innerEmpFilter"); loadInner(); }
+  if (page === "outer") { loadEmpOptions("outerEmpFilter"); loadOuter(); }
+  if (page === "quality") { loadEmpOptions("qualityEmpFilter"); loadQuality(); }
+  if (page === "attendance") loadAttendance();
+  if (page === "results") loadWageResults();
+}
+
+// 仪表盘
+async function loadDashboard() {
+  const res = await api("/api/stats/dashboard");
+  if (!res.success) return;
+  const s = res.data;
+  document.getElementById("statsGrid").innerHTML = `
+    <div class="stat-card"><div class="label">在职员工</div><div class="value">${s.emp_count||0}</div></div>
+    <div class="stat-card"><div class="label">本月产量(kg)</div><div class="value">${(s.month_output||0).toFixed(1)}</div></div>
+    <div class="stat-card"><div class="label">本月平均工资</div><div class="value">${(s.avg_wage||0).toFixed(0)}</div></div>
+    <div class="stat-card"><div class="label">品质扣次</div><div class="value" style="color:#fa8c16;">${s.quality_count||0}</div></div>
+  `;
+  if (s.top_employees && s.top_employees.length) {
+    document.getElementById("topEmployees").innerHTML = "<table><thead><tr><th>排名</th><th>姓名</th><th>车间</th><th>产量(kg)</th></tr></thead><tbody>" +
+      s.top_employees.map((e,i) => `<tr><td>${i+1}</td><td>${e.name}</td><td>${e.section}</td><td>${(e.total||0).toFixed(1)}</td></tr>`).join("") +
+      "</tbody></table>";
+  }
+  document.getElementById("dbStatus").textContent = "● 已连接 | " + new Date().toLocaleString();
+}
+
+// 员工管理
+async function loadEmployees() {
+  const res = await api("/api/employees");
+  if (!res.success) return;
+  let data = res.data;
+  const kw = document.getElementById("empSearch").value.trim().toLowerCase();
+  const section = document.getElementById("empSectionFilter").value;
+  if (kw) data = data.filter(e => (e.name||"").toLowerCase().includes(kw) || (e.emp_code||"").toLowerCase().includes(kw));
+  if (section) data = data.filter(e => e.section === section);
+  const tbody = document.getElementById("empTable");
+  if (!data.length) { tbody.innerHTML=""; document.getElementById("empEmpty").style.display="block"; return; }
+  document.getElementById("empEmpty").style.display="none";
+  tbody.innerHTML = data.map(e => `
+    <tr>
+      <td>${e.emp_code||""}</td>
+      <td>${e.name}</td>
+      <td><span class="tag tag-blue">${e.section}</span></td>
+      <td>${e.emp_type==="计件"?"<span class=\"tag tag-green\">计件</span>":"<span class=\"tag tag-orange\">计时</span>"}</td>
+      <td>${e.hire_date||""}</td>
+      <td><span class="tag tag-green">${e.status||"在职"}</span></td>
+      <td>
+        <button class="btn btn-sm" style="background:#e6f7ff;color:#1890ff;" onclick="editEmp(${e.id})">编辑</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteEmp(${e.id},'${e.name}')">删除</button>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function openEmpModal(id=null) {
+  document.getElementById("empModalTitle").textContent = id ? "编辑员工" : "新增员工";
+  document.getElementById("empId").value = id || "";
+  if (id) {
+    const res = await api("/api/employees");
+    const e = res.data.find(x => x.id === id);
+    if (e) {
+      document.getElementById("empCode").value = e.emp_code||"";
+      document.getElementById("empName").value = e.name||"";
+      document.getElementById("empSection").value = e.section||"外包";
+      document.getElementById("empType").value = e.emp_type||"计件";
+      document.getElementById("empHireDate").value = e.hire_date||"";
+    }
+  } else {
+    document.getElementById("empCode").value = "";
+    document.getElementById("empName").value = "";
+    document.getElementById("empSection").value = "外包";
+    document.getElementById("empType").value = "计件";
+    document.getElementById("empHireDate").value = new Date().toISOString().slice(0,10);
+  }
+  document.getElementById("empModal").classList.add("show");
+}
+
+async function saveEmp() {
+  const id = document.getElementById("empId").value;
+  const data = {
+    emp_code: document.getElementById("empCode").value.trim(),
+    name: document.getElementById("empName").value.trim(),
+    section: document.getElementById("empSection").value,
+    emp_type: document.getElementById("empType").value,
+    hire_date: document.getElementById("empHireDate").value
+  };
+  if (!data.emp_code || !data.name) { alert("请填写工号和姓名"); return; }
+  let url = "/api/employees", method = "POST";
+  if (id) { url = "/api/employees/" + id; method = "PUT"; }
+  const res = await api(url, {method, headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
+  if (res.success) { closeModal("empModal"); loadEmployees(); }
+  else alert("保存失败: " + (res.message||""));
+}
+
+async function editEmp(id) { openEmpModal(id); }
+async function deleteEmp(id, name) {
+  if (!confirm("确认删除员工 " + name + "?")) return;
+  const res = await api("/api/employees/" + id, {method:"DELETE"});
+  if (res.success) loadEmployees(); else alert("删除失败");
+}
+
+// 工价
+async function loadPrices() {
+  const res = await api("/api/prices");
+  if (!res.success) return;
+  document.getElementById("priceTable").innerHTML = res.data.map(p => `
+    <tr><td>${p.product_name}</td><td><span class="tag tag-blue">${p.section}</span></td><td>${p.unit_price}</td><td>${p.unit}</td></tr>
+  `).join("");
+}
+
+// 员工下拉选项
+async function loadEmpOptions(selectId) {
+  const res = await api("/api/employees");
+  if (!res.success) return;
+  const sel = document.getElementById(selectId);
+  sel.innerHTML = "<option value=\"\">全部员工</option>" + res.data.map(e => `<option value="${e.emp_code}">${e.name}(${e.emp_code})</option>`).join("");
+}
+
+// 产量记录通用
+async function loadSemi() { loadRecords("semi"); }
+async function loadInner() { loadRecords("inner"); }
+async function loadOuter() { loadRecords("outer"); }
+
+async function loadRecords(type) {
+  const params = new URLSearchParams();
+  const dateFrom = document.getElementById(type + "DateFrom").value;
+  const dateTo = document.getElementById(type + "DateTo").value;
+  const empCode = document.getElementById(type + "EmpFilter").value;
+  if (dateFrom) params.append("date_from", dateFrom);
+  if (dateTo) params.append("date_to", dateTo);
+  if (empCode) params.append("emp_code", empCode);
+  const res = await api("/api/" + type + "?" + params.toString());
+  if (!res.success) return;
+  const tbody = document.getElementById(type + "Table");
+  const empty = document.getElementById(type + "Empty");
+  if (!res.data.length) { tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  const empRes = await api("/api/employees");
+  const empMap = {}; empRes.data.forEach(e => empMap[e.emp_code] = e.name);
+  const sectionMap = {}; empRes.data.forEach(e => sectionMap[e.emp_code] = e.section);
+  tbody.innerHTML = res.data.map(r => `
+    <tr>
+      <td>${r.date}</td><td>${r.emp_code}</td><td>${empMap[r.emp_code]||""}</td>
+      <td>${r.product_name}</td><td>${r.weight}</td>
+      <td>${sectionMap[r.emp_code]||""}</td>
+      <td><button class="btn btn-sm btn-danger" onclick="deleteRecord('${type}',${r.id})">删除</button></td>
+    </tr>
+  `).join("");
+}
+
+async function openRecordModal(type) {
+  document.getElementById("recordType").value = type;
+  document.getElementById("recordModalTitle").textContent = type==="semi"?"新增半成品产量":type==="inner"?"新增内销产量":"新增外销产量";
+  document.getElementById("recordId").value = "";
+  document.getElementById("recordDate").value = new Date().toISOString().slice(0,10);
+  const empRes = await api("/api/employees");
+  document.getElementById("recordEmp").innerHTML = empRes.data.map(e => `<option value="${e.emp_code}">${e.name}(${e.emp_code})</option>`).join("");
+  const priceRes = await api("/api/prices");
+  document.getElementById("recordProduct").innerHTML = priceRes.data.map(p => `<option value="${p.product_name}">${p.product_name} (${p.unit_price}元/kg)</option>`).join("");
+  document.getElementById("recordWeight").value = "";
+  document.getElementById("recordModal").classList.add("show");
+}
+
+async function saveRecord() {
+  const type = document.getElementById("recordType").value;
+  const data = {
+    date: document.getElementById("recordDate").value,
+    emp_code: document.getElementById("recordEmp").value,
+    product_name: document.getElementById("recordProduct").value,
+    weight: parseFloat(document.getElementById("recordWeight").value)
+  };
+  if (!data.date || !data.emp_code || !data.product_name || !data.weight) { alert("请填写完整"); return; }
+  const res = await api("/api/" + type, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
+  if (res.success) {
+    closeModal("recordModal");
+    if (type==="semi") loadSemi(); if (type==="inner") loadInner(); if (type==="outer") loadOuter();
+  } else alert("保存失败: " + (res.message||""));
+}
+
+async function deleteRecord(type, id) {
+  if (!confirm("确认删除?")) return;
+  const res = await api("/api/" + type + "/" + id, {method:"DELETE"});
+  if (res.success) { if (type==="semi") loadSemi(); if (type==="inner") loadInner(); if (type==="outer") loadOuter(); }
+  else alert("删除失败");
+}
+
+// 品质扣次
+async function loadQuality() {
+  const params = new URLSearchParams();
+  const dateFrom = document.getElementById("qualityDateFrom").value;
+  const dateTo = document.getElementById("qualityDateTo").value;
+  const empCode = document.getElementById("qualityEmpFilter").value;
+  if (dateFrom) params.append("date_from", dateFrom);
+  if (dateTo) params.append("date_to", dateTo);
+  if (empCode) params.append("emp_code", empCode);
+  const res = await api("/api/quality?" + params.toString());
+  if (!res.success) return;
+  const tbody = document.getElementById("qualityTable");
+  const empty = document.getElementById("qualityEmpty");
+  if (!res.data.length) { tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  const empRes = await api("/api/employees");
+  const empMap = {}; empRes.data.forEach(e => empMap[e.emp_code] = e.name);
+  tbody.innerHTML = res.data.map(r => `
+    <tr><td>${r.date}</td><td>${r.emp_code}</td><td>${empMap[r.emp_code]||""}</td>
+    <td>${r.description||""}</td><td><span class="tag tag-red">${r.deduct_count}次</span></td>
+    <td><button class="btn btn-sm btn-danger" onclick="deleteQuality(${r.id})">删除</button></td></tr>
+  `).join("");
+}
+
+async function openQualityModal() {
+  document.getElementById("qualityDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("qualityDesc").value = "";
+  document.getElementById("qualityDeduct").value = "1";
+  const empRes = await api("/api/employees");
+  document.getElementById("qualityEmp").innerHTML = empRes.data.map(e => `<option value="${e.emp_code}">${e.name}(${e.emp_code})</option>`).join("");
+  document.getElementById("qualityModal").classList.add("show");
+}
+
+async function saveQuality() {
+  const data = {
+    date: document.getElementById("qualityDate").value,
+    emp_code: document.getElementById("qualityEmp").value,
+    description: document.getElementById("qualityDesc").value,
+    deduct_count: parseInt(document.getElementById("qualityDeduct").value)
+  };
+  const res = await api("/api/quality", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
+  if (res.success) { closeModal("qualityModal"); loadQuality(); } else alert("保存失败");
+}
+
+async function deleteQuality(id) {
+  if (!confirm("确认删除?")) return;
+  const res = await api("/api/quality/" + id, {method:"DELETE"});
+  if (res.success) loadQuality(); else alert("删除失败");
+}
+
+// 考勤
+async function loadAttendance() {
+  const params = new URLSearchParams();
+  const dateFrom = document.getElementById("attDateFrom").value;
+  const dateTo = document.getElementById("attDateTo").value;
+  if (dateFrom) params.append("date_from", dateFrom);
+  if (dateTo) params.append("date_to", dateTo);
+  const res = await api("/api/attendance?" + params.toString());
+  if (!res.success) return;
+  const tbody = document.getElementById("attTable");
+  const empty = document.getElementById("attEmpty");
+  if (!res.data.length) { tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  const empRes = await api("/api/employees");
+  const empMap = {}; empRes.data.forEach(e => empMap[e.emp_code] = e.name);
+  tbody.innerHTML = res.data.map(r => `
+    <tr><td>${r.date}</td><td>${r.emp_code}</td><td>${empMap[r.emp_code]||""}</td>
+    <td>${r.hours}</td><td>${r.note||""}</td></tr>
+  `).join("");
+}
+
+async function openAttendanceModal() {
+  document.getElementById("attDate").value = new Date().toISOString().slice(0,10);
+  document.getElementById("attHours").value = "";
+  document.getElementById("attNote").value = "";
+  const empRes = await api("/api/employees");
+  document.getElementById("attEmp").innerHTML = empRes.data.map(e => `<option value="${e.emp_code}">${e.name}(${e.emp_code})</option>`).join("");
+  document.getElementById("attendanceModal").classList.add("show");
+}
+
+async function saveAttendance() {
+  const data = {
+    date: document.getElementById("attDate").value,
+    emp_code: document.getElementById("attEmp").value,
+    hours: parseFloat(document.getElementById("attHours").value),
+    note: document.getElementById("attNote").value
+  };
+  const res = await api("/api/attendance", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data)});
+  if (res.success) { closeModal("attendanceModal"); loadAttendance(); } else alert("保存失败: " + (res.message||""));
+}
+
+// 工资核算
+function setWageMonth() {
+  const now = new Date();
+  const ym = now.toISOString().slice(0,7);
+  document.getElementById("wageMonth").value = ym;
+  document.getElementById("resultMonth").value = ym;
+}
+setWageMonth();
+
+async function calcWage() {
+  const month = document.getElementById("wageMonth").value;
+  if (!month) { alert("请选择月份"); return; }
+  const res = await api("/api/wage-calc", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({month})});
+  if (res.success) {
+    const alertDiv = document.getElementById("wageAlert");
+    alertDiv.style.display="block";
+    alertDiv.textContent = "✅ 核算完成！共处理 " + (res.results||[]).length + " 名员工，请切换到【工资结果】查看详情。";
+    const tbody = document.getElementById("wageResult");
+    if (res.results && res.results.length) {
+      tbody.innerHTML = "<table class=\"wage-table\"><thead><tr><th>姓名</th><th>车间</th><th>类型</th><th>产量(kg)</th><th>计件工资</th><th>出勤(h)</th><th>计时工资</th><th>应发</th></tr></thead><tbody>" +
+        res.results.map(r => `<tr><td>${r.name}</td><td>${r.section}</td><td>${r.emp_type}</td><td>${(r.total_output||0).toFixed(1)}</td><td>${(r.piece_wage||0).toFixed(2)}</td><td>${(r.attendance_hours||0).toFixed(1)}</td><td>${(r.hourly_wage||0).toFixed(2)}</td><td><strong>${(r.total_wage||0).toFixed(2)}</strong></td></tr>`).join("") +
+        "</tbody></table>";
+    }
+  } else alert("核算失败: " + (res.message||""));
+}
+
+async function loadWageResults() {
+  const month = document.getElementById("resultMonth").value;
+  if (!month) return;
+  const res = await api("/api/wage-results?month=" + month);
+  if (!res.success) return;
+  const tbody = document.getElementById("resultTable");
+  const empty = document.getElementById("resultEmpty");
+  if (!res.data || !res.data.length) { tbody.innerHTML=""; empty.style.display="block"; return; }
+  empty.style.display="none";
+  tbody.innerHTML = res.data.map(r => `
+    <tr>
+      <td>${r.emp_code}</td><td>${r.name}</td><td>${r.section}</td><td>${r.emp_type}</td>
+      <td>${(r.total_output||0).toFixed(1)}</td>
+      <td>${(r.piece_wage||0).toFixed(2)}</td>
+      <td>${(r.attendance_hours||0).toFixed(1)}</td>
+      <td>${(r.hourly_wage||0).toFixed(2)}</td>
+      <td><span class="tag tag-red">${r.quality_deduct}次</span></td>
+      <td><strong style="color:#1890ff;">${(r.total_wage||0).toFixed(2)}</strong></td>
+      <td><span class="tag ${r.approved?"tag-green":"tag-orange"}">${r.approved?"已审批":"待审批"}</span></td>
+    </tr>
+  `).join("");
+}
+
+function exportResults() {
+  const month = document.getElementById("resultMonth").value;
+  if (!month) { alert("请选择月份"); return; }
+  window.open(API_BASE + "/api/export?month=" + month, "_blank");
+}
+
+// 弹窗
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+window.onclick = function(e) { if (e.target.classList.contains("modal-mask")) e.target.classList.remove("show"); };
+
+// 初始化
+loadDashboard();
+</script>
+</body>
+</html>
